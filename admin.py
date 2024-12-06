@@ -1,8 +1,8 @@
-from django.contrib import admin
-from booking.models import Booking, Seat, Train, TrainSchedule
+from django.urls import path
+from booking.views.admin import AdminBookingViewSet
 
-# Register your models here.
-admin.site.register(Train)
-admin.site.register(TrainSchedule)
-admin.site.register(Booking)
-admin.site.register(Seat)
+urlpatterns = [
+    path("add_train",AdminBookingViewSet.as_view({"post":"add_train"})),
+    path("add_train_schedule",AdminBookingViewSet.as_view({"post":"add_train_schedule"})),
+    path("update_train_schedule/<int:schedule_id>",AdminBookingViewSet.as_view({"patch":"update_train_schedule"})),
+]
