@@ -1,103 +1,50 @@
 from django.db import models
-from django.db.models.fields import proxy
-from django.urls import reverse
-from django.contrib.auth.models import AbstractUser, AbstractBaseUser, BaseUserManager
-from django.utils.translation import gettext_lazy
-from django.utils.translation import gettext_lazy as _
-from django.core.validators import RegexValidator
-from django.utils import timezone
-import uuid
+from account.models import BaseModel, Account
 
-ADMIN = 0
-READER = 1
-WRITER = 2
-
-class BaseModel(models.Model):
-    """BaseModel for every children models"""
-
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False, db_index=True, unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    modified_at = models.DateTimeField(auto_now=True)
-    is_deleted = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        abstract = True
-
-
-class AccountManager(BaseUserManager):
-    def create_user(self, email, password=None):
-        """
-        Creates and saves a User with the given email, date of
-        birth and password.
-        """
-        if not email:
-            raise ValueError('Users must have an email address')
-
-        user = self.model(
-            email=self.normalize_email(email),
-        )
-
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, email, password=None):
-        """
-        Creates and saves a superuser with the given email, date of
-        birth and password.
-        """
-        user = self.create_user(
-            email,
-            password=password
-        )
-        user.is_admin = True
-        user.save(using=self._db)
-        return user
-
-
-class Account(AbstractBaseUser, BaseModel):
-    email = models.EmailField(
-        verbose_name='email address',
-        max_length=255,
-        unique=True,
-    )
-    username = models.CharField(unique=True,max_length=64, null = True, blank=True)
-    name = models.CharField(max_length=64, null = True, blank=True)
-    
-    phone_regex = RegexValidator(regex=r'^\+?1?\d{9,15}$', message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed.")
-    mobile_number = models.CharField(validators=[phone_regex], max_length=17, blank=True,null = True) 
-
-    user_registered_on = models.DateTimeField(default=timezone.now, blank=True)
-
-    is_active = models.BooleanField(default=True)
-    is_admin = models.BooleanField(default=False)
-
-    objects = AccountManager()
-
-    USERNAME_FIELD = 'email'
+class Train(BaseModel):
+    source = models.CharField(max_length=100)
+    destination = models.CharField(max_length=100)
+    train_number = models.CharField(max_length=100)
+    train_name = models.CharField(max_length=100)
+    total_seats = models.IntegerField()
+    price = models.FloatField()
 
     def __str__(self):
-        return self.email
-    
-    def has_perm(self, perm, obj=None):
-        "Does the user have a specific permission?"
-        # Simplest possible answer: Yes, always
-        return True
+        return self.train_name
 
-    def has_module_perms(self, app_label):
-        "Does the user have permissions to view the app `app_label`?"
-        # Simplest possible answer: Yes, always
-        return True
+class TrainSchedule(BaseModel):
+    train = models.ForeignKey(Train, on_delete=models.CASCADE)
+    journey_date = models.DateField()
+    departure_time = models.TimeField()
+    arrival_time = models.TimeField()
 
-    @property
-    def is_staff(self):
-        "Is the user a member of staff?"
-        # Simplest possible answer: All admins are staff
-        return self.is_admin
+    journey_end_date = models.DateField()
+    journey_end_time = models.TimeField()
 
-class AdminSecret(BaseModel):
-    """Model to store encrypted API key secret for admin user"""
+    available_seats = models.IntegerField()
+
+    def __str__(self):
+        return self.train.train_name
+
+class Booking(BaseModel):
     user = models.ForeignKey(Account, on_delete=models.CASCADE)
-    # secret = models.BinaryField(max_length=10000)
-    api_key = models.CharField(max_length=1000)
+    train = models.ForeignKey(Train, on_delete=models.CASCADE)
+    number_of_seats = models.IntegerField()
+    total_price = models.FloatField()
+    booking_date = models.DateTimeField(auto_now_add=True)
+    booking_status = models.BooleanField(default=False)
+    schedule = models.ForeignKey(TrainSchedule, on_delete=models.CASCADE)
+    payment_status = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.user.email
+
+class Seat(BaseModel):
+    train = models.ForeignKey(Train, on_delete=models.CASCADE)
+    seat_number = models.IntegerField()
+    status = models.BooleanField(default=False)
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, null=True, blank=True)
+    journey_date = models.DateField()
+
+    def __str__(self):
+        return self.train.train_name + ' ' + str(self.seat_number) + ' ' + str(self.booking.user.email) + ' ' + str(self.journey_date)
